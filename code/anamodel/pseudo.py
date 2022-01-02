@@ -15,7 +15,6 @@ class BasePrices:
     def __init__():
         pass;
 
-
 class SalesObjective:
     def __init__():
         pass;
@@ -24,9 +23,13 @@ class SalesStatus:
     def __init__():
         pass; 
 
-        
-class Product:
+class MarketTrend:
     def __init__():
+        pass; 
+
+class Product:
+    def __init__(self, productCode):
+        selpf.productData = ProductData(productCode); 
         pass;
 
 #def calc_pric: 
