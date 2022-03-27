@@ -1,0 +1,72 @@
+Customer Model {
+	0.01 Myopia,
+	0.2 Myopia
+}
+
+SaleScenarios {
+	0.7 target
+	1 target
+	1.3 tatget	
+}
+
+MarketModel {
+	Seasonality: PeakVs/NonPeakTimes. 
+	Peaks Vs Average Ratio
+}
+
+RequestTable {
+	#productId
+	#time
+	#priceOffered
+	#competionPrice
+	#myopia
+}
+
+CustomerSegmentModel {
+	#MyopicPercentage
+}
+
+StrategyComparison {
+	FixedPrice,
+	PriceBySegment,
+	IlpSegmentSize,
+}
+
+VolumeWeighted {
+	
+}
+
+#make data
+
+
+Customer
+========
+[typeCustomer|buyChances|maxPurchasePrice(U)|priceOffered|sold?]
+
+CustomerModel {
+	typesAndDistribution - {
+		M : {R: 0.05, ClickToPurchase: 3, DemandCurve: Absolute } 
+		S : {R: 0.95, ClickToPurchase: 3, DemandCurve: Relative }
+	}
+}
+
+RequestRate
+
+Target - Low, Moderate, Extensive
+
+
+
+ClientBase Model + Demand Model --> Historical Transaction(100%) --> Target --> Adjusted Target + Demand Model to Predit Request --> Solve LP --> spitting out next N Prices --> Evaluation
+
+Demand Model {
+	Yearly Average: 1000000 Req;
+	Monthly Req: {Jan: }
+	WeekDays Req: {J}
+	std_dev: 5%
+}
+
+
+CustomerModel {
+	type: {M:340 }
+	Std_dev: 
+}
