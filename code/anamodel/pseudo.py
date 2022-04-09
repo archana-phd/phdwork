@@ -6,6 +6,36 @@ Current Status: Remaining inventory, Current cost price
 Competition data: others price, other’s quality (if available)
 Market: Current demand, predicted demand in future based on history
 Explore factor: new product discount, new customer discount
+
+how to make vwap for ecommerce dp
+transaction table --> vwap profile (time window -> #of txn)
+transaction table --> demand curve (dx/dp)
+inflation adjustment
+predict number of items those can be sold at each prices.
+if met daily target start showing high prices
+
+Inputs:
+(1) txnTable --> 
+| product | date |  clientFactor | salePrice | competitorPrice | costPrice | profit
+
+(2) Historical RequestRate
+
+(3) SalesObjective:
+Objective .. 100 items , over 5 days
+
+(4) Ongoing
+
+(5) CustomerData
+
+
+Intermediate:
+
+#ItemCanBeSold | CustomerCategory | Price 
+
+
+#Item to sell,, 
+
+
 '''
 class ProductData: 
     @classmethod
@@ -121,10 +151,9 @@ class Product:
                 - TWAP
                 - Volume profile
             - Reacting to ongoing demand
-                
-
-
-
+        
+        Sell at max. when there is demand, or continue selling 
+        Price - Denand - 
 
 
         '''

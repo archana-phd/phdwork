@@ -73,11 +73,12 @@ with open('eggs.csv', 'w', newline='') as csvfile:
 		csvfile.write('\n'+','.join(ds))
 
 
-def dataFile(test_name, variaton):
-	return ("./hist_data/" + test_name + "-" + variaton);
+def dataFile(test_name, variaton, folder="hist_data"):
+	return ("./"+ folder +"/" + test_name + "-" + variaton);
 
-def generateIfNotThere(test_name, variaton, test_config):
-	filename = dataFile(test_name, variaton)
+def generateIfNotThere(test_name, variaton, test_config, filename="", start_date='2021-01-01'):
+	if(filename==""):
+		filename = dataFile(test_name, variaton)
 	if(os.path.isfile(filename)): #nothing to do
 		print("Data file already present [" + filename + "], not simulating a new one")
 		return; 
@@ -88,7 +89,7 @@ def generateIfNotThere(test_name, variaton, test_config):
 	sum_month = 1.0*sum(mdata)
 	sum_weeks = 1.0*sum(wdata)
 	
-	baseDay = datetime.date.fromisoformat('2021-01-01').toordinal();
+	baseDay = datetime.date.fromisoformat(start_date).toordinal();
 	all_data = []
 	for d in range(365):
 		date = datetime.date.fromordinal(baseDay+d)
@@ -125,4 +126,9 @@ def load(test_name, variaton, test_config):
 		data = json.load(fp)
 	return data;
 
-	
+def simulatFuture(test_name, variaton, test_config):
+	filename = dataFile(test_name, variaton, "sim_data")
+	generateIfNotThere(test_name, variaton, test_config, filename, '2022-01-01')
+	with open(filename, 'r') as fp:
+		data = json.load(fp)
+	return data;
