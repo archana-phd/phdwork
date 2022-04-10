@@ -17,37 +17,13 @@ def main(test_name, variation):
 	test_config = config_test.getTest(test_name)
 	print(test_config)
 
-	'''
-	print("##----Generating historical data ---- ##");
-	history_data.generateIfNotThere(test_name, variaton, test_config)
-
-	[sp_myopic, sp_strategic] = sp_module.calculate(test_name, variaton)
-
-	print("##----Generating/Locating historical data ----- ##");
-	daily_target_slices = vwat.make_targets_slice(test_config)
-
-	print("##----Solving LP and conducting experiments --- ##");
-	for daily_target in daily_target_slices:
-		prices_vector = pricer.calculate(daily_target, expected_num_requests, test_config.myopic_percentage, sp_myopic, sp_strategic);			
-
-		real_requests = de_sim.getNumberOfRequests; 
-		for i in range(real_requests):
-			offered_price = pricer.getPriceFromVector( )
-	'''
-
 ####### Script Startup: Argv processing and run #########
 if(len(sys.argv) < 2):
 	print(sys.argv[0] + " <test> ?variation")
 	exit()
-test = sys.argv[1]
-variation = str(sys.argv[2] if(len(sys.argv)>=3) else 0);
 
-#main(test, variation)
 
-test_config = config_test.getTest("test_basic")
-test_hist_data = history_data.load("test_basic", "1", test_config)	
-
-def calc_sp(test_hist_data, ctype):
+def calculateSalesProbabilities(test_hist_data, ctype):
 	ctype_hist_data = [x for x in test_hist_data['data'] if x['ctype'] == ctype]
 	msp = {}
 	for m in ctype_hist_data:
@@ -67,7 +43,7 @@ def calc_sp(test_hist_data, ctype):
 	sp = [ x for x in sp if x[1] > 0  ]
 	return sp
 
-def getProfile(hist_data):
+def calculateProfile(hist_data):
 	months = [0]*12
 	weeks = [0]*7
 	for x in hist_data:
@@ -79,56 +55,39 @@ def getProfile(hist_data):
 	months = [ round(100.0*x/total)/100 for x in months ]
 	weeks = [ round(100.0*x/total)/100 for x in weeks ]
 	return {'myopia': M, 'month_profile': months, 'weeks_profile':weeks}
-	
 
-sp_m = calc_sp(test_hist_data, 'm')
-sp_s = calc_sp(test_hist_data, 's')
-print("\nm\n:", sp_m )
-print("\ns\n:", sp_s )
-calculated_profile = getProfile(test_hist_data['data'])
-print(calculated_profile)
+def maxSellableQty(hist_data):
+	min_price = min([x['offer'] for x in hist_data])
+	MSQ = len([x for x in hist_data if x['scout'] == False and x['cust_price'] >= min_price])
+	MSQ = round(MSQ/365);
+	return MSQ;
 
-baseDay = datetime.date.fromisoformat('2022-01-01').toordinal();
-[total_qty, total_days] = [test_config.target.target_qty, test_config.target.period_days]
-#total_qty =  int(total_qty/5);
-#total_days = 1
-#total_qty = 400
+def makeDailyTargetProfile(total_qty, total_days, calculated_profile):
+	global sale_start_date
+	past_total_vol = len(test_hist_data['data']);
+	calc_adv = round(past_total_vol/365.0);
+	total_expected_req = calc_adv*total_days;
 
-past_total_vol = len(test_hist_data['data']);
-calc_adv = round(past_total_vol/365.0);
-total_expected_req = calc_adv*total_days;
+	relative_target = [];
+	for i in range(total_days):
+		d = datetime.date.fromordinal(sale_start_date+i)
+		m = d.month-1
+		w = d.weekday()
+		relative_target.append(100.0 * calculated_profile['month_profile'][m] * calculated_profile['weeks_profile'][w])
+	relative_target = [x/sum(relative_target) for x in relative_target ]
+	daily_target_qtys = [ round(total_qty * x) for x in relative_target ]
+	daily_expected_req = [ round(total_expected_req * x) for x in relative_target ]
 
-relative_target = [];
-for i in range(total_days):
-	d = datetime.date.fromordinal(baseDay+i)
-	m = d.month-1
-	w = d.weekday()
-	relative_target.append( 100.0 * calculated_profile['month_profile'][m] * calculated_profile['weeks_profile'][w])
+	'''
+	delta = total_qty-sum(daily_target_qtys)
+	abs_delta = abs(delta);
+	for i in range(abs_delta):
+		daily_target_qtys[i] += delta/abs_delta
+		daily_target_qtys[i] = int(daily_target_qtys[i])
+	'''
+	return ([daily_target_qtys, daily_expected_req])
 
-relative_target = [x/sum(relative_target) for x in relative_target ]
-daily_target_qtys = [ round(total_qty * x) for x in relative_target ]
-daily_expected_req = [ round(total_expected_req * x) for x in relative_target ]
-
-delta = total_qty-sum(daily_target_qtys)
-abs_delta = abs(delta);
-for i in range(abs_delta):
-	daily_target_qtys[i] += delta/abs_delta
-	daily_target_qtys[i] = int(daily_target_qtys[i])
-
-
-
-
-#lp
-#Variables --> #of request for Price points .. req[i]
-#Constraints --> 
-	# Sum of ( req[i] ) <= expected_req_vol
-	# Sum of ( sp[i]*req[i] ) <= target_qty
-#Optimize
-	# sum of ( req[i]*sp[i]*price[i] )
-
-sf = history_data.simulatFuture("test_basic", "1", test_config)
-
-def makeOfferPrice(ctype, solution):
+def makeOfferPriceFromLPSolution(ctype, solution):
 	res_vec = solution[ctype];
 	total = sum(list([x[1] for x in res_vec]));
 	n = round(random.random()*total);
@@ -139,56 +98,75 @@ def makeOfferPrice(ctype, solution):
 	return((res_vec[-1])[0])
 
 
-sfi = 0;
+test = sys.argv[1]
+variation = str(sys.argv[2] if(len(sys.argv)>=3) else 0);
+
+test_config = config_test.getTest("test_basic")
+test_hist_data = history_data.load("test_basic", "1", test_config)	
+thdata = test_hist_data['data'];
+sf = history_data.simulatFuture("test_basic", "1", test_config)
 sfdata = sf['data']
+sale_start_date = sfdata[0]['date']
 
-fixed_revenues = dict.fromkeys( list(range(400,660,10)), 0 )
-fixed_remaining = dict.fromkeys( list(range(400,660,10)), total_qty )
+MSQ = maxSellableQty(thdata)
 
-dp_rev = 0;
-dp_remaining = total_qty
-random.seed(400)
-baseDay = datetime.date.fromisoformat('2022-01-01').toordinal();
-acc_sale_target = 0;
-for day in range(total_days):
-	date_now = baseDay + day
-	today_vol = [x for x in sfdata if x['date'] == date_now]
-	actual_myo =  len([x for x in today_vol if x['ctype'] == 'm'])*1.0/len(today_vol)
-	acc_sale_target += daily_target_qtys[day];
-	acc_sale_target = max(0, acc_sale_target)
-	target_sale_qty = acc_sale_target
-	print( "Starting with actual=",daily_target_qtys[day], ",modified=",acc_sale_target )
-	expected_req_vol = daily_expected_req[day];
-	expected_myo = calculated_profile['myopia']
-	#expected_myo = actual_myo
 
-	solution = lp_solve.solve(target_sale_qty, expected_req_vol, expected_myo, sp_m, sp_s)
-	req_served = 0;
-	r_myo = 0;
-	r_str = 0;
-	while sfi < len(sfdata) and sfdata[sfi]['date'] == date_now:
-		req_served += 1
-		if(sfdata[sfi]['ctype'] == 's'):
-			r_str += 1
-		else:
-			r_myo += 1
-		for p,rev in fixed_revenues.items():
-			if fixed_remaining[p] and sfdata[sfi]['cust_price'] >= p and sfdata[sfi]['scout'] == False:
-				fixed_remaining[p] -= 1
-				fixed_revenues[p] += p/1000.0
-	
-		if(acc_sale_target>0):
-			dp = makeOfferPrice(sfdata[sfi]['ctype'], solution)
-			if dp_remaining and sfdata[sfi]['cust_price'] >= dp and sfdata[sfi]['scout'] == False:
-				dp_remaining -= 1
-				acc_sale_target -= 1
-				dp_rev += dp/1000.0
-				#print(dp)
-		sfi += 1
-	print( "day=", date_now, "expected_req_vol=", expected_req_vol, ", actual_vol=", req_served, 
-			", expected_myo=", expected_myo, ", actual myo=", r_myo*1.0/(r_myo+r_str), ",sol=", solution );
+sale_prob_mayo = calculateSalesProbabilities(test_hist_data, 'm')
+sale_prob_strt = calculateSalesProbabilities(test_hist_data, 's')
+calculated_profile = calculateProfile(test_hist_data['data'])
+expected_myo = calculated_profile['myopia']
+[total_qty, total_days] = [test_config.target.target_qty, test_config.target.period_days]
 
-print(fixed_revenues)
-#46600.67999993477
+total_qtys = [ round(total_days*MSQ/10.0),  round(total_days*MSQ/5.0), round(total_days*MSQ/3.0), round(total_days*MSQ/1.5) ]
 
-print(dp_rev)
+#cp_prices = [1.15, 1.25, 1.4, 1.5]
+cp_prices = [ round(x*400) for x in [1.15, 1.25, 1.4, 1.5, 1.6] ]
+for total_qty in total_qtys:
+	[daily_target_qtys, daily_expected_req] = makeDailyTargetProfile(total_qty, total_days, calculated_profile);
+	print("total_qty=",total_qty)
+	sfi = 0;
+	fixed_revenues = dict.fromkeys( cp_prices, 0 )
+	fixed_remaining = dict.fromkeys( cp_prices, total_qty )
+	dp_rev = 0;
+	dp_remaining = total_qty
+
+	random.seed(400)
+	acc_sale_target = 0;
+	for day in range(total_days):
+		date_now = sale_start_date + day
+		today_vol = [x for x in sfdata if x['date'] == date_now]
+		actual_myo =  len([x for x in today_vol if x['ctype'] == 'm'])*1.0/len(today_vol)
+		acc_sale_target += daily_target_qtys[day];
+		acc_sale_target = max(0, acc_sale_target)
+		target_sale_qty = acc_sale_target
+		#print( "Starting with actual=",daily_target_qtys[day], ",modified=",acc_sale_target )
+		expected_req_vol = daily_expected_req[day];
+
+		solution = lp_solve.solve(target_sale_qty, expected_req_vol, expected_myo, sale_prob_mayo, sale_prob_strt)
+		req_served = 0;
+		r_myo = 0;
+		r_str = 0;
+		while sfi < len(sfdata) and sfdata[sfi]['date'] == date_now:
+			req_served += 1
+			if(sfdata[sfi]['ctype'] == 's'):
+				r_str += 1
+			else:
+				r_myo += 1
+			for p,rev in fixed_revenues.items():
+				if fixed_remaining[p] and sfdata[sfi]['cust_price'] >= p and sfdata[sfi]['scout'] == False:
+					fixed_remaining[p] -= 1
+					fixed_revenues[p] += p/1000.0
+		
+			if(acc_sale_target>0):
+				dp = makeOfferPriceFromLPSolution(sfdata[sfi]['ctype'], solution)
+				if dp_remaining and sfdata[sfi]['cust_price'] >= dp and sfdata[sfi]['scout'] == False:
+					dp_remaining -= 1
+					acc_sale_target -= 1
+					dp_rev += dp/1000.0
+					#print(dp)
+			sfi += 1
+		#print( "day=", date_now, "expected_req_vol=", expected_req_vol, ", actual_vol=", req_served, 
+		#		", expected_myo=", expected_myo, ", actual myo=", r_myo*1.0/(r_myo+r_str), ",sol=", solution );
+
+	print(fixed_revenues)
+	print(dp_rev)

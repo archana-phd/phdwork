@@ -15,7 +15,7 @@ def solve(target_sale_qty, expected_req_vol, mratio, sp_m, sp_s):
 	expected_s_vol = expected_req_vol-expected_m_vol;
 
 	#print( "target_sale_qty=", target_sale_qty, ",expected_req_vol=",expected_req_vol, ",mratio=", mratio, ",\nsp_m=", sp_m, ",\nsp_m=", sp_s )
-	print( "@LP.. target_sale_qty=", target_sale_qty, ",expected_req_vol=",expected_req_vol, ",mratio=", mratio)
+	#print( "@LP.. target_sale_qty=", target_sale_qty, ",expected_req_vol=",expected_req_vol, ",mratio=", mratio)
 
 	solver = pywraplp.Solver.CreateSolver('GLOP')
 
